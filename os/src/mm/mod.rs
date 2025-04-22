@@ -6,7 +6,7 @@
 //!
 //! Every task or process has a memory_set to control its virtual memory.
 
-mod address;
+pub(crate) mod address;
 mod frame_allocator;
 mod heap_allocator;
 mod memory_set;
@@ -17,7 +17,7 @@ use address::{StepByOne, VPNRange};
 pub use frame_allocator::{frame_alloc, FrameTracker};
 pub use memory_set::remap_test;
 pub use memory_set::{kernel_stack_position, MapPermission, MemorySet, KERNEL_SPACE};
-pub use page_table::{translated_byte_buffer, PageTableEntry};
+pub use page_table::{translated_byte_buffer, translated_va_to_pa, PageTableEntry};
 pub use page_table::{PTEFlags, PageTable};
 
 /// initiate heap allocator, frame allocator and kernel space
