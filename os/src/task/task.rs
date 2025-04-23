@@ -1,8 +1,8 @@
 //! Types related to task management & Functions for completely changing TCB
 use super::TaskContext;
 use super::{kstack_alloc, pid_alloc, KernelStack, PidHandle};
-use crate::config::TRAP_CONTEXT_BASE;
-use crate::mm::{MemorySet, PhysPageNum, VirtAddr, KERNEL_SPACE};
+use crate::config::{BIG_STRIDE, TRAP_CONTEXT_BASE};
+use crate::mm::{MapPermission, MemorySet, PhysPageNum, VirtAddr, KERNEL_SPACE};
 use crate::sync::UPSafeCell;
 use crate::trap::{trap_handler, TrapContext};
 use alloc::sync::{Arc, Weak};
@@ -68,6 +68,15 @@ pub struct TaskControlBlockInner {
 
     /// Program break
     pub program_brk: usize,
+
+    /// stride
+    pub stride: isize,
+
+    /// pass
+    pub pass: isize,
+
+    /// priority
+    pub priority: isize,
 }
 
 impl TaskControlBlockInner {
@@ -84,6 +93,17 @@ impl TaskControlBlockInner {
     }
     pub fn is_zombie(&self) -> bool {
         self.get_status() == TaskStatus::Zombie
+    }
+    pub fn insert_framed_area(&mut self, start_addr: VirtAddr, end_addr: VirtAddr, permissions: MapPermission) {
+        self.memory_set.insert_framed_area(start_addr, end_addr, permissions);
+    }
+
+    pub fn delete_framed_area(&mut self, start_addr: VirtAddr, end_addr: VirtAddr) {
+        self.memory_set.delete_framed_area(start_addr, end_addr);
+    }
+    
+    pub fn step_stride(&mut self) {
+        self.stride += self.pass;
     }
 }
 
@@ -118,6 +138,9 @@ impl TaskControlBlock {
                     exit_code: 0,
                     heap_bottom: user_sp,
                     program_brk: user_sp,
+                    stride: 0,
+                    pass: BIG_STRIDE / 16,
+                    priority: 16,
                 })
             },
         };
@@ -131,6 +154,58 @@ impl TaskControlBlock {
             trap_handler as usize,
         );
         task_control_block
+    }
+    /// spawn
+    pub fn spawn(self: &Arc<Self>, elf_data: &[u8]) -> Arc<TaskControlBlock> {
+        let mut inner = self.inner_exclusive_access();
+        let pid_handle = pid_alloc();
+        let kernel_stack = kstack_alloc();
+        let kernel_stack_top = kernel_stack.get_top();
+        let new_task_control_block = Arc::new(TaskControlBlock {
+            pid: pid_handle,
+            kernel_stack,
+            inner: unsafe {
+                UPSafeCell::new(TaskControlBlockInner {
+                    trap_cx_ppn: PhysPageNum(0),
+                    base_size: inner.base_size,
+                    task_cx: TaskContext::goto_trap_return(kernel_stack_top),
+                    task_status: TaskStatus::Ready,
+                    memory_set: MemorySet::new_bare(),
+                    parent: Some(Arc::downgrade(self)),
+                    children: Vec::new(),
+                    exit_code: 0,
+                    heap_bottom: inner.heap_bottom,
+                    program_brk: inner.program_brk,
+                    stride: 0,
+                    pass: BIG_STRIDE / 16,
+                    priority: 16,
+                })
+            },
+        });
+
+        inner.children.push(new_task_control_block.clone());
+
+        let (memory_set, user_sp, entry_point) = MemorySet::from_elf(elf_data);
+        let trap_cx_ppn = memory_set
+            .translate(VirtAddr::from(TRAP_CONTEXT_BASE).into())
+            .unwrap()
+            .ppn();
+        {
+            let mut inner = new_task_control_block.inner_exclusive_access();
+            inner.memory_set = memory_set;
+            inner.trap_cx_ppn = trap_cx_ppn;
+            inner.base_size = user_sp;
+            let trap_cx = inner.get_trap_cx();
+            *trap_cx = TrapContext::app_init_context(
+                entry_point,
+                user_sp,
+                KERNEL_SPACE.exclusive_access().token(),
+                self.kernel_stack.get_top(),
+                trap_handler as usize,
+            );
+        }
+
+        new_task_control_block
     }
 
     /// Load a new elf to replace the original application address space and start execution
@@ -191,6 +266,9 @@ impl TaskControlBlock {
                     exit_code: 0,
                     heap_bottom: parent_inner.heap_bottom,
                     program_brk: parent_inner.program_brk,
+                    stride: 0,
+                    pass: BIG_STRIDE / 16,
+                    priority: 16,
                 })
             },
         });
