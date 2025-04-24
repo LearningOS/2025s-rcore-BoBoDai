@@ -4,6 +4,7 @@ use alloc::string::String;
 use alloc::vec;
 use alloc::vec::Vec;
 use bitflags::*;
+use crate::task::current_user_token;
 
 bitflags! {
     /// page table entry flags
@@ -179,6 +180,14 @@ pub fn translated_byte_buffer(token: usize, ptr: *const u8, len: usize) -> Vec<&
         start = end_va.into();
     }
     v
+}
+
+/// translated_va_to_pa
+pub fn translated_va_to_pa(virt_addr: usize) -> usize {
+    let va = VirtAddr::from(virt_addr);
+    let pt = PageTable::from_token(current_user_token());
+    let ppn = pt.translate(va.floor()).unwrap().ppn();
+    usize::from(PhysAddr::from(ppn)) | va.page_offset()
 }
 
 /// Translate&Copy a ptr[u8] array end with `\0` to a `String` Vec through page table
