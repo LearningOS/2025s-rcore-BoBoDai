@@ -4,18 +4,21 @@ use crate::{
     trap::{trap_handler, TrapContext},
 };
 use alloc::sync::Arc;
+use alloc::vec;
+
 /// thread create syscall
 pub fn sys_thread_create(entry: usize, arg: usize) -> isize {
+    let tid = current_task()
+        .unwrap()
+        .inner_exclusive_access()
+        .res
+        .as_ref()
+        .unwrap()
+        .tid;
     trace!(
         "kernel:pid[{}] tid[{}] sys_thread_create",
         current_task().unwrap().process.upgrade().unwrap().getpid(),
-        current_task()
-            .unwrap()
-            .inner_exclusive_access()
-            .res
-            .as_ref()
-            .unwrap()
-            .tid
+        tid
     );
     let task = current_task().unwrap();
     let process = task.process.upgrade().unwrap();
@@ -50,6 +53,9 @@ pub fn sys_thread_create(entry: usize, arg: usize) -> isize {
         trap_handler as usize,
     );
     (*new_task_trap_cx).x[10] = arg;
+    let sem_len = process_inner.available_sem.len();
+    process_inner.allocation_sem.push(vec![0; sem_len]);
+    process_inner.need_sem.push(vec![0; sem_len]);
     new_task_tid as isize
 }
 /// get current thread id syscall

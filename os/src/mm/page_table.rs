@@ -4,6 +4,7 @@ use alloc::string::String;
 use alloc::vec;
 use alloc::vec::Vec;
 use bitflags::*;
+use crate::task::current_user_token;
 
 bitflags! {
     /// page table entry flags
@@ -196,6 +197,14 @@ pub fn translated_str(token: usize, ptr: *const u8) -> String {
         va += 1;
     }
     string
+}
+
+/// translated pa to va
+pub fn translated_va_to_pa(va: usize) -> usize {
+    let va = VirtAddr::from(va);
+    let page_table = PageTable::from_token(current_user_token());
+    let ppn = page_table.translate(va.floor()).unwrap().ppn();
+    usize::from(PhysAddr::from(ppn)) | va.page_offset()
 }
 
 /// translate a pointer `ptr` in other address space to a immutable u8 slice in kernel address space. NOTICE: the content pointed to by the pointer `ptr` cannot cross physical pages, otherwise translated_byte_buffer should be used.

@@ -19,7 +19,7 @@ pub use memory_set::remap_test;
 pub use memory_set::{kernel_token, MapPermission, MemorySet, KERNEL_SPACE};
 use page_table::PTEFlags;
 pub use page_table::{
-    translated_byte_buffer, translated_ref, translated_refmut, translated_str, PageTable,
+    translated_byte_buffer, translated_ref, translated_refmut, translated_str,translated_va_to_pa, PageTable,
     PageTableEntry, UserBuffer, UserBufferIterator,
 };
 

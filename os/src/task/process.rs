@@ -49,6 +49,20 @@ pub struct ProcessControlBlockInner {
     pub semaphore_list: Vec<Option<Arc<Semaphore>>>,
     /// condvar list
     pub condvar_list: Vec<Option<Arc<Condvar>>>,
+    /// deadlock_detect
+    pub deadlock_detect: bool,
+    /// availavble
+    pub available: Vec<i32>,
+    /// allocation
+    pub allocation: Vec<Vec<i32>>,
+    /// need
+    pub need: Vec<Vec<i32>>,
+    /// availavble_sem
+    pub available_sem: Vec<usize>,
+    /// allocation_sem
+    pub allocation_sem: Vec<Vec<usize>>,
+    /// need_sem
+    pub need_sem: Vec<Vec<usize>>
 }
 
 impl ProcessControlBlockInner {
@@ -119,6 +133,13 @@ impl ProcessControlBlock {
                     mutex_list: Vec::new(),
                     semaphore_list: Vec::new(),
                     condvar_list: Vec::new(),
+                    deadlock_detect: false,
+                    available: Vec::new(),
+                    allocation: Vec::new(),
+                    need: Vec::new(),
+                    available_sem: Vec::new(),
+                    allocation_sem: vec![Vec::new()],
+                    need_sem: vec![Vec::new()],
                 })
             },
         });
@@ -245,6 +266,13 @@ impl ProcessControlBlock {
                     mutex_list: Vec::new(),
                     semaphore_list: Vec::new(),
                     condvar_list: Vec::new(),
+                    deadlock_detect: false,
+                    available: Vec::new(),
+                    allocation: Vec::new(),
+                    need: Vec::new(),
+                    available_sem: Vec::new(),
+                    allocation_sem: vec![Vec::new()],
+                    need_sem: vec![Vec::new()],
                 })
             },
         });
