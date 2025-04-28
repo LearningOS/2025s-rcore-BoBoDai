@@ -242,7 +242,7 @@ pub fn sys_semaphore_down(sem_id: usize) -> isize {
                 break;
             }
         }
-        if finish.iter().any(|x| !x) || tid > 2 {
+        if finish.iter().any(|x| !x) || sem_id > 2 {
             process_inner.need_sem[tid][sem_id] -= 1;
             return -0xdead;
         }
